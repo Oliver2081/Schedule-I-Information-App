@@ -191,7 +191,6 @@ def findDrugAmt(drug):
                         item = json.loads(item)
                         
                         if item.get("ID") == drug: # If item matches drug
-                            print(item.get("PackagingID"))
                             if item.get("PackagingID") == '': # Raw
                                 drugAmtRaw += item.get("Quantity")
                             elif item.get("PackagingID") == 'baggie': # Bag
