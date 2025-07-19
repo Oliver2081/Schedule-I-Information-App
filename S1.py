@@ -1,4 +1,7 @@
-# Version 2
+# Schedule I Information Tool
+# Version 2.0.3
+# Copyright (c) 2025 Oliver2081
+
 
 import os
 import requests
@@ -6,7 +9,6 @@ import json
 from bs4 import BeautifulSoup
 import questionary as q
 
-# ~~~~ Setup ~~~~ #
 
 # ~~~~ Variables ~~~~ #
 USERNAME = os.getlogin()
@@ -14,6 +16,8 @@ SAVEPATH = f"C:\\Users\\{USERNAME}\\AppData\\LocalLow\\TVGS\\Schedule I\\Saves"
 
 usernames = {}
 saveFiles = {}
+
+ranks = ["Street Rat", "Hoodlum", "Peddler", "Hustler", "Bagman", "Enforcer", "Shot Caller", "Block Boss", "Underlord", "Baron", "Kingpin"]
 
 items = {
     "ogkush": "OG Kush",
@@ -37,7 +41,7 @@ items = {
     "motoroil": "Motor Oil",
     "mouthwash": "Mouth Wash",
     "paracetamol": "Paracetamol",
-    "viagor": "Viagor",
+    "viagor": "Viagra",
 }
 
 mixers = ["addy", "banana", "battery", "chili", "cuke", "donut", "energydrink", "flumedicine", "gasoline", "horsesemen", "iodine", "megabean", "motoroil", "mouthwash", "paracetamol", "viagor"]
@@ -49,34 +53,34 @@ effects = {
     "brighteyed": "Bright-Eyed",
     "caloriedense": "Calorie-Dense",
     "calming": "Calming",
-    #"cyclopean": "Cyclopean",
-    #"disorienting": "Disorienting",
+    "cyclopean": "Cyclopean",
+    "disorienting": "Disorienting",
     "electrifying": "Electrifying",
     "energizing": "Energizing",
-    #"explosive": "Explosive",
-    #"euphoric": "Euphoric",
-    #"focused": "Focused",
+    "explosive": "Explosive",
+    "euphoric": "Euphoric",
+    "focused": "Focused",
     "foggy": "Foggy",
     "gingeritis": "Gingeritis",
     "giraffying": "Long-Faced",
-    #"glowing": "Glowing",
+    "glowing": "Glowing",
     "jennerising": "Jennerising",
-    #"laxative": "Laxative",
+    "laxative": "Laxative",
     "munchies": "Munchies",
     "paranoia": "Paranoia",
     "refreshing": "Refreshing",
-    #"schizophrenic": "Schizophrenic",
-    #"seizure_inducing": "Seizure-Inducing",
+    "schizophrenic": "Schizophrenic",
+    "seizure_inducing": "Seizure-Inducing",
     "sedating": "Sedating",
-    #"shrinking": "Shrinking",
-    #"smelly": "Smelly",
+    "shrinking": "Shrinking",
+    "smelly": "Smelly",
     "sneaky": "Sneaky",
     "slippery": "Slippery",
     "spicy": "Spicy",
     "thoughtprovoking": "Thought-Provoking",
-    #"toxic": "Toxic",
+    "toxic": "Toxic",
     "tropicthunder": "Tropic Thunder",
-    #"zombifying": "Zombifying",
+    "zombifying": "Zombifying",
 }
 
 
@@ -130,10 +134,25 @@ def readSaveFile():
     productSaveFile.close()
     return saveData
 
+def readRank(ranksList):
+    romanNumerals = {1:"I", 2:"II", 3:"III", 4:"IV", 5:"V"}
+    
+    with open(f"Rank.json", 'r') as rankFile:
+        rankData = json.load(rankFile)
+    
+    rank = int(rankData.get("Rank"))
+    tier = int(rankData.get("Tier"))
+    xp = int(rankData.get("TotalXP"))
+    
+    rankStr = ranksList[rank]
+    tierStr = romanNumerals[tier]
+    
+    return f"{rankStr} {tierStr}", xp
+
 def findRecipe(saveData, productId, productName):
     finished = False
     recipes = saveData.get("recipes", [])
-    process = [productName]
+    process = []
     
     while True:
         for r in recipes:
@@ -155,19 +174,56 @@ def findRecipe(saveData, productId, productName):
         if step in items:
             process[i] = items[step]
     
-    processStr = " > ".join(process)
+    processStr = " + ".join(process)
     return processStr
 
 def findDrugAmt(drug):
     HOMEDIR = os.getcwd() # Save Current Path
-    os.chdir("Properties")
+    properties = []
+    players = []
 
-    properties = os.listdir()
-    
     drugAmtRaw = 0
     drugAmtBag = 0
     drugAmtJar = 0
-    drugAmtBrick = 0 # TODO Add brick support
+    drugAmtBrick = 0
+    
+    os.chdir("Properties")
+    
+    for file in os.listdir():
+        properties.append(f"Properties/{file}")
+    
+    os.chdir(HOMEDIR)
+    os.chdir("Businesses")
+    
+    for file in os.listdir():
+        properties.append(f"Businesses/{file}")
+    
+    os.chdir(HOMEDIR)
+    
+    os.chdir("Players")
+    
+    players = [d for d in os.listdir(os.getcwd()) if os.path.isdir(os.path.join(os.getcwd(), d))]
+
+    for player in players:
+        os.chdir(player)
+        with open("Inventory.json") as invFile:
+            data = json.load(invFile)
+            Items = data.get("Items")
+            
+        for item in Items:
+            item = json.loads(item)
+                        
+            if item.get("ID") == drug: # If item matches drug
+                if item.get("PackagingID") == '': # Raw
+                    drugAmtRaw += item.get("Quantity")
+                elif item.get("PackagingID") == 'baggie': # Bag
+                    drugAmtBag += item.get("Quantity")
+                elif item.get("PackagingID") == 'jar': # Jar
+                    drugAmtJar += item.get("Quantity")
+                elif item.get("PackagingID") == 'brick': # Brick
+                    drugAmtBrick += item.get("Quantity")
+
+    os.chdir(HOMEDIR)
     
     for p in properties:
         with open(p, "r") as propertyFile:
@@ -197,6 +253,8 @@ def findDrugAmt(drug):
                                 drugAmtBag += item.get("Quantity")
                             elif item.get("PackagingID") == 'jar': # Jar
                                 drugAmtJar += item.get("Quantity")
+                            elif item.get("PackagingID") == 'brick': # Brick
+                                drugAmtBrick += item.get("Quantity")
 
     propertyFile.close()
     os.chdir(HOMEDIR)            
@@ -234,6 +292,10 @@ selectedSaveId = saveFiles[selectedSave]
 os.chdir(selectedSaveId)
 
 while True:
+    rd = readRank(ranks)
+    currentRank = rd[0]
+    xp = rd[1]
+    
     saveData = readSaveFile() # Read Save File
     
     productsW = [
@@ -295,6 +357,8 @@ while True:
 
     print("║ {:<32} ║".format(f"User: {selectedUser}"))
     print("║ {:<32} ║".format(f"Organisation: {selectedSave}"))
+    print("║ {:<32} ║".format(f"Rank: {currentRank}"))
+    print("║ {:<32} ║".format(f"XP: {xp}"))
 
     print("╠"+ "═" * 34 + "╬" + "═" * 14 + "╦" + "═" * (longestLengthP + 2) + "╦" + "═" * (longestLengthR + 2) + "╦" + "═" * 6 + "╗")
 
