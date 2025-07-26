@@ -1,6 +1,26 @@
-# Schedule I Information Tool
-# Version 2.0.3
-# Copyright (c) 2025 Oliver2081
+# Version 2.0.4
+
+# © 2025 Oliver2081
+#
+# This software is licensed under the MIT License.
+# 
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+# 
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
 
 
 import os
@@ -8,12 +28,14 @@ import requests
 import json
 from bs4 import BeautifulSoup
 import questionary as q
+import time
+from tqdm import tqdm
 
+print("Schedule I Drug Lookup v2.0.4")
 
 # ~~~~ Variables ~~~~ #
 USERNAME = os.getlogin()
 SAVEPATH = f"C:\\Users\\{USERNAME}\\AppData\\LocalLow\\TVGS\\Schedule I\\Saves"
-
 usernames = {}
 saveFiles = {}
 
@@ -90,8 +112,8 @@ def decodeSteamUserId(steamUserId):
     headers = {'User-Agent': 'Mozilla/5.0'}
     
     try:
-        response = requests.get(url, headers=headers)
-    
+        response = requests.get(url, headers=headers, timeout=5)
+        
         if response.status_code == 200:
             parser = BeautifulSoup(response.text, 'html.parser')
             username = parser.find('span', {'class': 'actual_persona_name'})
@@ -111,7 +133,6 @@ def decodeSaveName(save):
     
     organisationName = data.get('OrganisationName')
     
-    file.close()
     return organisationName
     
 def readSaveFile():
@@ -131,8 +152,13 @@ def readSaveFile():
         "recipes": recipes,
         }
         
-    productSaveFile.close()
     return saveData
+
+def readGameTime():
+    with open("Time.json", 'r') as timeFile:
+        timeData = json.load(timeFile)
+        
+    return timeData.get("Playtime")
 
 def readRank(ranksList):
     romanNumerals = {1:"I", 2:"II", 3:"III", 4:"IV", 5:"V"}
@@ -266,7 +292,6 @@ def findDrugAmt(drug):
 longestLengthP = 0
 longestLengthR = 0
 
-
 os.chdir(SAVEPATH) # Change Dir To Save Path
 userIds = os.listdir() # Get User Ids
 
@@ -292,28 +317,41 @@ selectedSaveId = saveFiles[selectedSave]
 os.chdir(selectedSaveId)
 
 while True:
+    print("\nLoading Save Data:", end="\r")
+    
+    oldSaveTime = readGameTime() 
+    
     rd = readRank(ranks)
     currentRank = rd[0]
     xp = rd[1]
     
     saveData = readSaveFile() # Read Save File
     
-    productsW = [
-        ("OG Kush", "Weed", ["calming"], "", findDrugAmt('ogkush')),
-        ("Sour Diesel", "Weed", ["refreshing"], "", findDrugAmt('sourdiesel')),
-        ("Green Crack", "Weed", ["energizing"], "", findDrugAmt('greencrack')),
-        ("Granddaddy Purple", "Weed", ["sedating"], "", findDrugAmt('granddaddypurple')),
-        ]
+    print("Loading Save Data: Done")
+    
+    with tqdm(total=3, desc="Loading Base Drugs", bar_format="{l_bar}{bar} | {n_fmt}/{total_fmt}") as progress:
+        productsW = [
+            ("OG Kush", "Weed", ["calming"], "", findDrugAmt('ogkush')),
+            ("Sour Diesel", "Weed", ["refreshing"], "", findDrugAmt('sourdiesel')),
+            ("Green Crack", "Weed", ["energizing"], "", findDrugAmt('greencrack')),
+            ("Granddaddy Purple", "Weed", ["sedating"], "", findDrugAmt('granddaddypurple')),
+            ]
         
-    productsM = [
-        ("Meth", "Meth", [], "", findDrugAmt('meth')),
-        ]
+        progress.update(1)
         
-    productsC = [
-        ("Cocaine", "Cocaine", [], "", findDrugAmt('cocaine')),
-        ]
-
-    for product in saveData["weedData"]:
+        productsM = [
+            ("Meth", "Meth", [], "", findDrugAmt('meth')),
+            ]
+        
+        progress.update(1)
+            
+        productsC = [
+            ("Cocaine", "Cocaine", [], "", findDrugAmt('cocaine')),
+            ]
+        
+        progress.update(1)
+        
+    for product in tqdm(saveData["weedData"], desc="Finding Weed Recipes", bar_format="{l_bar}{bar} | {n_fmt}/{total_fmt}"):
         pName = product["Name"]
         pID = product["ID"]
         pDrugType = "Weed Mix"
@@ -325,7 +363,7 @@ while True:
         
         productsW.append((pName, pDrugType, pProperties, pRecipe, findDrugAmt(pID)))
 
-    for product in saveData["methData"]:
+    for product in tqdm(saveData["methData"], desc="Finding Meth Recipes", bar_format="{l_bar}{bar} | {n_fmt}/{total_fmt}"):
         pName = product["Name"]
         pID = product["ID"]
         pDrugType = "Meth Mix"
@@ -337,7 +375,7 @@ while True:
         
         productsM.append((pName, pDrugType, pProperties, pRecipe, findDrugAmt(pID)))
         
-    for product in saveData["cocaineData"]:
+    for product in tqdm(saveData["cocaineData"], desc="Finding Cocaine Recipes", bar_format="{l_bar}{bar} | {n_fmt}/{total_fmt}"):
         pName = product["Name"]
         pID = product["ID"]
         pDrugType = "Cocaine Mix"
@@ -396,5 +434,5 @@ while True:
         print(TABLEFORMAT.format(entry[0], entry[1], properties, entry[3], entry[4]))
     print("╚" + "═" * 34 + "╩" + "═" * 14 + "╩" + "═" * (longestLengthP + 2) + "╩" + "═" * (longestLengthR + 2) + "╩" + "═" * 6 + "╝")
     
-    
-    input("\n\nPress Return To Refresh...")
+    while oldSaveTime >= readGameTime():
+        time.sleep(5)
